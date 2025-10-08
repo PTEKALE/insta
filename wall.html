@@ -12,6 +12,8 @@
       --border:#e5e7eb;
       --shadow:0 10px 30px rgba(0,0,0,.12);
       --menu-bg:#ffffff;
+      /* 🔒 Fixed card width — tweak as you like */
+      --card-w: 300px;
     }
     *{box-sizing:border-box}
     body{
@@ -19,13 +21,18 @@
       background:#f5f7fb; /* JS sets background-image */
       font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;
       color:var(--text);
+      /* keep page itself from scrolling; grid will scroll vertically */
       overflow:hidden;
     }
+    /* ✅ Fixed-size cards + vertical scroll; no shrinking */
     .grid{
       position:fixed; inset:0; padding:18px;
-      display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--card-w), var(--card-w)));
+      justify-content: start;          /* left-align columns */
       gap:18px; align-content:start;
-      overflow:auto; /* allow scrolling when many cards */
+      overflow-y:auto;                 /* vertical scroll */
+      overflow-x:hidden;               /* no horizontal scroll */
       z-index:1;
     }
     .card{
@@ -39,6 +46,8 @@
       transform:translateY(0);
       touch-action:manipulation;
       user-select:none;
+      /* ensure card matches column width exactly */
+      width: var(--card-w);
     }
     .pin-badge{
       position:absolute; top:8px; right:8px;
@@ -52,7 +61,6 @@
       background:#f1f5f9;object-fit:cover;flex:0 0 36px;border:1px solid var(--border)
     }
     .user{font-weight:700;font-size:14px;color:var(--text)}
-    /* Square (1:1) image like Instagram */
     .img{
       width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:#f1f5f9;
     }
@@ -67,9 +75,9 @@
     .body{padding:10px 12px;color:var(--text)}
     .comment-text{font-size:17px;line-height:1.45;}
     .muted{color:var(--muted);font-size:12px;margin-top:6px}
+
     @keyframes float { to { transform: translateY(-8px); } }
 
-    /* Toast + Badge */
     .toast{
       position:fixed;left:50%;top:14px;transform:translateX(-50%);
       background:#ffffff;border:1px solid var(--border);padding:10px 14px;border-radius:12px;
@@ -83,7 +91,6 @@
       padding:6px 10px;border-radius:10px;color:var(--muted);font-size:12px;z-index:2;box-shadow:var(--shadow)
     }
 
-    /* Long-press menu */
     .menu{
       position:absolute; right:8px; top:8px; z-index:4;
       background:var(--menu-bg); border:1px solid var(--border); border-radius:12px;
@@ -112,8 +119,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     /* ========= 0) CONFIG ========= */
-    // Background image (file next to wall.html OR external URL via ?bg=)
-    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg'; // ← replace with your JPEG
+    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg';
     const urlBG = new URLSearchParams(location.search).get('bg');
     if (urlBG) WALL_BG = urlBG;
     document.addEventListener('DOMContentLoaded', () => {
@@ -124,12 +130,11 @@
       document.body.style.backgroundRepeat = 'no-repeat';
     });
 
-    // Supabase (replace)
+    // Supabase (your project)
     const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Poll every 1s as fallback
     const POLL_MS = 1000;
 
     /* ========= 1) STATE ========= */
@@ -143,7 +148,6 @@
     const seen = new Set();
     let lastSeenCreatedAt = null;
 
-    // Persist pin/remove states locally
     const pinnedIDs = new Set(JSON.parse(localStorage.getItem('pinnedIDs') || '[]'));
     const removedIDs = new Set(JSON.parse(localStorage.getItem('removedIDs') || '[]'));
     function savePins(){ localStorage.setItem('pinnedIDs', JSON.stringify([...pinnedIDs])); }
@@ -222,7 +226,6 @@
     function showMenu(cardEl, post){
       const menu = buildMenu(cardEl, post);
       menu.style.display = 'block';
-      // Hide when clicking outside this card
       const onDocClick = (e)=>{
         if(!cardEl.contains(e.target)){ menu.style.display='none'; document.removeEventListener('click', onDocClick); }
       };
@@ -239,7 +242,6 @@
         } else if(act === 'unpin'){
           pinnedIDs.delete(post.id); savePins();
           markPinned(cardEl, false);
-          // keep in place; new posts will still appear after any remaining pins
         } else if(act === 'remove'){
           removedIDs.add(post.id); saveRemoved();
           cardEl.remove();
@@ -269,17 +271,10 @@
         </div>
         <div class="menu"></div>
       `;
-
-      // actions row
       const actions = div.querySelector('.actions');
       actions.replaceWith(makeActions());
-
-      // pin badge if needed
       if (pinnedIDs.has(post.id)) { markPinned(div, true); }
-
-      // long-press
       attachLongPress(div, post);
-
       return div;
     }
 
@@ -293,21 +288,17 @@
         .limit(100);
       if(error){ console.error(error); return; }
       grid.innerHTML = '';
-      // Build normal then move pinned to front
       const list = [];
       data.forEach(p => {
-        if (removedIDs.has(p.id)) return; // skip removed
+        if (removedIDs.has(p.id)) return;
         if (!seen.has(p.id)) { seen.add(p.id); list.push(p); }
       });
       list.forEach(p => grid.appendChild(card(p)));
-      // Move pinned cards to the very front (keeps left/top start)
       [...grid.children].forEach(el => {
         const id = el.dataset.postId;
         if (pinnedIDs.has(id)) grid.prepend(el);
       });
-
-      if (list.length > 0) lastSeenCreatedAt = list[0].created_at; // newest
-
+      if (list.length > 0) lastSeenCreatedAt = list[0].created_at;
       if (!list.length) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted)">No posts yet. Scan the QR and post your first photo!</div>';
       }
@@ -318,7 +309,7 @@
         .channel('posts-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
           const p = payload.new; if(!p.approved) return;
-          if (removedIDs.has(p.id)) return; // user removed locally
+          if (removedIDs.has(p.id)) return;
           if (seen.has(p.id)) return;
           seen.add(p.id);
           lastSeenCreatedAt = p.created_at && (!lastSeenCreatedAt || p.created_at > lastSeenCreatedAt) ? p.created_at : lastSeenCreatedAt;
@@ -359,13 +350,11 @@
       }
     }
 
-    /* ========= 4) Like toggle ========= */
     grid.addEventListener('click', (e) => {
       const btn = e.target.closest('.icon.like');
       if (btn) btn.classList.toggle('liked');
     });
 
-    /* ========= 5) Boot ========= */
     loadInitial();
     subscribeRealtime();
     setInterval(pollNewPosts, POLL_MS);
