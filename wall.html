@@ -1,363 +1,552 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>InstaWall – Live Wall</title>
-  <style>
-    :root{
-      --card-bg:#ffffff;
-      --text:#111827;
-      --muted:#6b7280;
-      --border:#e5e7eb;
-      --shadow:0 10px 30px rgba(0,0,0,.12);
-      --menu-bg:#ffffff;
-      /* 🔒 Fixed card width — tweak as you like */
-      --card-w: 300px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:#f5f7fb; /* JS sets background-image */
-      font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;
-      color:var(--text);
-      /* keep page itself from scrolling; grid will scroll vertically */
-      overflow:hidden;
-    }
-    /* ✅ Fixed-size cards + vertical scroll; no shrinking */
-    .grid{
-      position:fixed; inset:0; padding:18px;
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--card-w), var(--card-w)));
-      justify-content: start;          /* left-align columns */
-      gap:18px; align-content:start;
-      overflow-y:auto;                 /* vertical scroll */
-      overflow-x:hidden;               /* no horizontal scroll */
-      z-index:1;
-    }
-    .card{
-      position:relative;
-      background:var(--card-bg);
-      border:1px solid var(--border);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      animation:float var(--dur) ease-in-out infinite alternate;
-      transform:translateY(0);
-      touch-action:manipulation;
-      user-select:none;
-      /* ensure card matches column width exactly */
-      width: var(--card-w);
-    }
-    .pin-badge{
-      position:absolute; top:8px; right:8px;
-      background:#fff; border:1px solid var(--border);
-      border-radius:999px; padding:2px 6px; font-size:12px;
-      box-shadow:var(--shadow);
-    }
-    .head{display:flex;gap:10px;align-items:center;padding:10px 12px}
-    .avatar{
-      width:36px;height:36px;border-radius:50%;
-      background:#f1f5f9;object-fit:cover;flex:0 0 36px;border:1px solid var(--border)
-    }
-    .user{font-weight:700;font-size:14px;color:var(--text)}
-    .img{
-      width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:#f1f5f9;
-    }
-    .actions{display:flex;gap:14px;align-items:center;padding:10px 12px}
-    .icon{background:transparent;border:0;padding:0;cursor:pointer;display:inline-flex;align-items:center}
-    .icon svg{width:26px;height:26px;display:block}
-    .icon.like svg path{fill:none;stroke:#111;stroke-width:2}
-    .icon.like.liked svg path{fill:#ef4444;stroke:#ef4444}
-    .icon.comment svg path,
-    .icon.share svg path{fill:none;stroke:#111;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-    .icon:active{transform:scale(.96)}
-    .body{padding:10px 12px;color:var(--text)}
-    .comment-text{font-size:17px;line-height:1.45;}
-    .muted{color:var(--muted);font-size:12px;margin-top:6px}
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>InstaWall – Live Wall</title>
+    <style>
+        :root {
+            --card-bg: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 10px 30px rgba(0,0,0,.12);
+            --menu-bg: #ffffff;
+            /* 🔒 Fixed card width (tweak as you like) */
+            --card-w: 300px;
+            /* ⬆ Bigger gaps between cards */
+            --gap: 32px;
+        }
 
-    @keyframes float { to { transform: translateY(-8px); } }
+        * {
+            box-sizing: border-box
+        }
+        /* Page does not scroll; grid handles vertical scrolling */
+        body {
+            margin: 0;
+            background: #f5f7fb; /* JS sets background-image */
+            font: 16px/1.45 system-ui,Segoe UI,Roboto,Arial;
+            color: var(--text);
+            overflow: hidden;
+        }
 
-    .toast{
-      position:fixed;left:50%;top:14px;transform:translateX(-50%);
-      background:#ffffff;border:1px solid var(--border);padding:10px 14px;border-radius:12px;
-      box-shadow:var(--shadow);
-      opacity:0;transition:opacity .25s, transform .25s;display:flex;gap:10px;align-items:center;z-index:3;color:var(--text)
-    }
-    .toast.show{opacity:1;transform:translateX(-50%) translateY(6px)}
-    .toast img{width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border)}
-    .badge{
-      position:fixed;right:12px;bottom:12px;background:#ffffff;border:1px solid var(--border);
-      padding:6px 10px;border-radius:10px;color:var(--muted);font-size:12px;z-index:2;box-shadow:var(--shadow)
-    }
+        /* ✅ Fixed-size columns + vertical scroll (no shrinking) */
+        .grid {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            padding: 18px;
+            display: grid;
+            /* Each track is EXACTLY --card-w. No minmax, no shrinking. */
+            grid-template-columns: repeat(auto-fill, var(--card-w));
+            grid-auto-rows: max-content;
+            /* Spread leftover width across the spaces (uses that ~120px nicely) */
+            justify-content: space-evenly; /* or: space-between for no outer margins */
+            column-gap: var(--gap);
+            row-gap: var(--gap);
+            align-content: start;
+            /* Vertical scrolling only */
+            overflow-y: auto;
+            overflow-x: hidden;
+            /* Stable viewport height */
+            height: 100svh; /* modern */
+            height: 100vh; /* fallback */
+            -webkit-overflow-scrolling: touch;
+            /* Visible, nice-looking scrollbar */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0,0,0,.25) transparent;
+            z-index: 1;
+        }
 
-    .menu{
-      position:absolute; right:8px; top:8px; z-index:4;
-      background:var(--menu-bg); border:1px solid var(--border); border-radius:12px;
-      box-shadow:var(--shadow); overflow:hidden; display:none;
-    }
-    .menu button{
-      display:block; width:160px; padding:10px 12px; text-align:left;
-      background:#fff; border:0; border-bottom:1px solid var(--border); color:var(--text); cursor:pointer;
-      font:14px system-ui,Segoe UI,Roboto,Arial;
-    }
-    .menu button:last-child{ border-bottom:0; }
-    .menu button:hover{ background:#f8fafc; }
-  </style>
+            .grid::-webkit-scrollbar {
+                width: 10px;
+            }
+
+            .grid::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .grid::-webkit-scrollbar-thumb {
+                background: rgba(0,0,0,.25);
+                border-radius: 8px;
+            }
+
+                .grid::-webkit-scrollbar-thumb:hover {
+                    background: rgba(0,0,0,.35);
+                }
+
+        .card {
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            animation: float var(--dur) ease-in-out infinite alternate;
+            transform: translateY(0);
+            touch-action: manipulation;
+            user-select: none;
+            /* Ensure card width matches the fixed grid track width */
+            width: var(--card-w);
+        }
+
+        .pin-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 6px;
+            font-size: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .head {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 12px
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            object-fit: cover;
+            flex: 0 0 36px;
+            border: 1px solid var(--border)
+        }
+
+        .user {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text)
+        }
+
+        /* 1:1 main image like Instagram */
+        .img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            display: block;
+            background: #f1f5f9;
+        }
+
+        /* Instagram-like action row */
+        .actions {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            padding: 10px 12px
+        }
+
+        .icon {
+            background: transparent;
+            border: 0;
+            padding: 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center
+        }
+
+            .icon svg {
+                width: 26px;
+                height: 26px;
+                display: block
+            }
+
+            .icon.like svg path {
+                fill: none;
+                stroke: #111;
+                stroke-width: 2
+            }
+
+            .icon.like.liked svg path {
+                fill: #ef4444;
+                stroke: #ef4444
+            }
+
+            .icon.comment svg path,
+            .icon.share svg path {
+                fill: none;
+                stroke: #111;
+                stroke-width: 2;
+                stroke-linejoin: round;
+                stroke-linecap: round
+            }
+
+            .icon:active {
+                transform: scale(.96)
+            }
+
+        .body {
+            padding: 10px 12px;
+            color: var(--text)
+        }
+
+        .comment-text {
+            font-size: 17px;
+            line-height: 1.45;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 6px
+        }
+
+        @keyframes float {
+            to {
+                transform: translateY(-8px);
+            }
+        }
+
+        /* Toast + Badge */
+        .toast {
+            position: fixed;
+            left: 50%;
+            top: 14px;
+            transform: translateX(-50%);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            transition: opacity .25s, transform .25s;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 3;
+            color: var(--text)
+        }
+
+            .toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(6px)
+            }
+
+            .toast img {
+                width: 38px;
+                height: 38px;
+                border-radius: 8px;
+                object-fit: cover;
+                border: 1px solid var(--border)
+            }
+
+        .badge {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            border-radius: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            z-index: 2;
+            box-shadow: var(--shadow)
+        }
+
+        /* Long-press menu */
+        .menu {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            z-index: 4;
+            background: var(--menu-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: none;
+        }
+
+            .menu button {
+                display: block;
+                width: 160px;
+                padding: 10px 12px;
+                text-align: left;
+                background: #fff;
+                border: 0;
+                border-bottom: 1px solid var(--border);
+                color: var(--text);
+                cursor: pointer;
+                font: 14px system-ui,Segoe UI,Roboto,Arial;
+            }
+
+                .menu button:last-child {
+                    border-bottom: 0;
+                }
+
+                .menu button:hover {
+                    background: #f8fafc;
+                }
+    </style>
 </head>
 <body>
-  <div id="grid" class="grid"></div>
-  <div id="badge" class="badge">Connecting…</div>
-  <div id="toast" class="toast">
-    <img id="timg" alt=""/>
-    <div>
-      <div id="tuser" style="font-weight:700"></div>
-      <div id="ttext" class="muted"></div>
+    <div id="grid" class="grid"></div>
+    <div id="badge" class="badge">Connecting…</div>
+    <div id="toast" class="toast">
+        <img id="timg" alt="" />
+        <div>
+            <div id="tuser" style="font-weight:700"></div>
+            <div id="ttext" class="muted"></div>
+        </div>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    /* ========= 0) CONFIG ========= */
-    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg';
-    const urlBG = new URLSearchParams(location.search).get('bg');
-    if (urlBG) WALL_BG = urlBG;
-    document.addEventListener('DOMContentLoaded', () => {
-      document.body.style.backgroundImage = `url('${WALL_BG}')`;
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundPosition = 'center';
-      document.body.style.backgroundAttachment = 'fixed';
-      document.body.style.backgroundRepeat = 'no-repeat';
-    });
-
-    // Supabase (your project)
-    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const POLL_MS = 1000;
-
-    /* ========= 1) STATE ========= */
-    const grid = document.getElementById('grid');
-    const toast = document.getElementById('toast');
-    const timg = document.getElementById('timg');
-    const tuser = document.getElementById('tuser');
-    const ttext = document.getElementById('ttext');
-    const badge = document.getElementById('badge');
-
-    const seen = new Set();
-    let lastSeenCreatedAt = null;
-
-    const pinnedIDs = new Set(JSON.parse(localStorage.getItem('pinnedIDs') || '[]'));
-    const removedIDs = new Set(JSON.parse(localStorage.getItem('removedIDs') || '[]'));
-    function savePins(){ localStorage.setItem('pinnedIDs', JSON.stringify([...pinnedIDs])); }
-    function saveRemoved(){ localStorage.setItem('removedIDs', JSON.stringify([...removedIDs])); }
-
-    /* ========= 2) HELPERS ========= */
-    function escapeHtml(s){ return s?.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) || ''; }
-    function linkify(text){ return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
-    function showToastPost(p){
-      timg.src = p.image_url; tuser.textContent = p.username; ttext.textContent = p.comment;
-      toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200);
-    }
-
-    function makeActions(){
-      const wrap = document.createElement('div');
-      wrap.className = 'actions';
-      wrap.innerHTML = `
-        <button class="icon like" aria-label="Like" title="Like">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16.5 3.5c-1.74 0-3.41.81-4.5 2.09C10.91 4.31 9.24 3.5 7.5 3.5 4.42 3.5 2 5.92 2 8.99c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-0.82C18.6 15.85 22 12.77 22 8.99 22 5.92 19.58 3.5 16.5 3.5z"></path>
-          </svg>
-        </button>
-        <button class="icon comment" aria-label="Comment" title="Comment">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"></path>
-          </svg>
-        </button>
-        <button class="icon share" aria-label="Share" title="Share">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M22 12l-7-5v3H8a4 4 0 0 0 0 8h7v3l7-5zM2 12h3"></path>
-          </svg>
-        </button>
-      `;
-      return wrap;
-    }
-
-    function markPinned(cardEl, on){
-      let badge = cardEl.querySelector('.pin-badge');
-      if(on){
-        if(!badge){
-          badge = document.createElement('div');
-          badge.className = 'pin-badge';
-          badge.textContent = '📌 Pinned';
-          cardEl.appendChild(badge);
-        }
-      } else {
-        if (badge) badge.remove();
-      }
-    }
-
-    function buildMenu(cardEl, post){
-      let menu = cardEl.querySelector('.menu');
-      if(!menu){
-        menu = document.createElement('div');
-        menu.className = 'menu';
-        cardEl.appendChild(menu);
-      }
-      const isPinned = pinnedIDs.has(post.id);
-      menu.innerHTML = `
-        ${isPinned ? '<button data-act="unpin">Unpin</button>' : '<button data-act="pin">Pin</button>'}
-        <button data-act="remove">Remove</button>
-      `;
-      return menu;
-    }
-
-    function attachLongPress(cardEl, post){
-      let timer = null;
-      const start = ()=>{ if(timer) return; timer = setTimeout(()=>{ showMenu(cardEl, post); }, 5000); }; // 5 seconds
-      const cancel = ()=>{ if(timer){ clearTimeout(timer); timer=null; } };
-      cardEl.addEventListener('pointerdown', start);
-      cardEl.addEventListener('pointerup', cancel);
-      cardEl.addEventListener('pointerleave', cancel);
-      cardEl.addEventListener('pointercancel', cancel);
-    }
-
-    function showMenu(cardEl, post){
-      const menu = buildMenu(cardEl, post);
-      menu.style.display = 'block';
-      const onDocClick = (e)=>{
-        if(!cardEl.contains(e.target)){ menu.style.display='none'; document.removeEventListener('click', onDocClick); }
-      };
-      document.addEventListener('click', onDocClick);
-
-      menu.onclick = (e)=>{
-        const btn = e.target.closest('button');
-        if(!btn) return;
-        const act = btn.getAttribute('data-act');
-        if(act === 'pin'){
-          pinnedIDs.add(post.id); savePins();
-          markPinned(cardEl, true);
-          grid.prepend(cardEl);
-        } else if(act === 'unpin'){
-          pinnedIDs.delete(post.id); savePins();
-          markPinned(cardEl, false);
-        } else if(act === 'remove'){
-          removedIDs.add(post.id); saveRemoved();
-          cardEl.remove();
-        }
-        menu.style.display = 'none';
-      };
-    }
-
-    function card(post){
-      const div = document.createElement('div'); div.className = 'card';
-      div.style.setProperty('--dur', (6 + Math.random()*8)+'s');
-      div.dataset.postId = post.id;
-
-      const user = escapeHtml(post.username);
-      const when = new Date(post.created_at).toLocaleString();
-
-      div.innerHTML = `
-        <div class="head">
-          <img class="avatar" src="${post.image_url}" alt="${user}'s profile"/>
-          <div class="user">${user}</div>
-        </div>
-        <img class="img" loading="lazy" src="${post.image_url}" alt="photo by ${user}"/>
-        <div class="actions"></div>
-        <div class="body">
-          <div class="comment-text">${linkify(escapeHtml(post.comment))}</div>
-          <div class="muted">${when}</div>
-        </div>
-        <div class="menu"></div>
-      `;
-      const actions = div.querySelector('.actions');
-      actions.replaceWith(makeActions());
-      if (pinnedIDs.has(post.id)) { markPinned(div, true); }
-      attachLongPress(div, post);
-      return div;
-    }
-
-    /* ========= 3) DATA ========= */
-    async function loadInitial(){
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('approved', true)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if(error){ console.error(error); return; }
-      grid.innerHTML = '';
-      const list = [];
-      data.forEach(p => {
-        if (removedIDs.has(p.id)) return;
-        if (!seen.has(p.id)) { seen.add(p.id); list.push(p); }
-      });
-      list.forEach(p => grid.appendChild(card(p)));
-      [...grid.children].forEach(el => {
-        const id = el.dataset.postId;
-        if (pinnedIDs.has(id)) grid.prepend(el);
-      });
-      if (list.length > 0) lastSeenCreatedAt = list[0].created_at;
-      if (!list.length) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted)">No posts yet. Scan the QR and post your first photo!</div>';
-      }
-    }
-
-    function subscribeRealtime(){
-      supabase
-        .channel('posts-changes')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
-          const p = payload.new; if(!p.approved) return;
-          if (removedIDs.has(p.id)) return;
-          if (seen.has(p.id)) return;
-          seen.add(p.id);
-          lastSeenCreatedAt = p.created_at && (!lastSeenCreatedAt || p.created_at > lastSeenCreatedAt) ? p.created_at : lastSeenCreatedAt;
-          const el = card(p);
-          if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
-          else { grid.prepend(el); }
-          showToastPost(p);
-        })
-        .subscribe((status) => {
-          badge.textContent = status === 'SUBSCRIBED' ? 'Connected' : status;
-          if (status === 'CLOSED' || status === 'TIMED_OUT') {
-            setTimeout(() => subscribeRealtime(), 1500);
-          }
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        /* ========= 0) CONFIG ========= */
+        // Background image (default or via ?bg=)
+        let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg';
+        const urlBG = new URLSearchParams(location.search).get('bg');
+        if (urlBG) WALL_BG = urlBG;
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.backgroundImage = `url('${WALL_BG}')`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundAttachment = 'fixed';
+            document.body.style.backgroundRepeat = 'no-repeat';
         });
-    }
 
-    async function pollNewPosts(){
-      if (!lastSeenCreatedAt) return;
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('approved', true)
-        .gt('created_at', lastSeenCreatedAt)
-        .order('created_at', { ascending: true });
-      if (error) { console.error(error); return; }
-      if (data && data.length) {
-        data.forEach(p => {
-          if (removedIDs.has(p.id)) return;
-          if (!seen.has(p.id)) {
-            seen.add(p.id);
-            const el = card(p);
-            if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
-            else { grid.prepend(el); }
-            showToastPost(p);
-          }
+        // Supabase project keys (yours)
+        const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Poll fallback (Realtime is instant; this just backs it up)
+        const POLL_MS = 1000;
+
+        /* ========= 1) STATE ========= */
+        const grid = document.getElementById('grid');
+        const toast = document.getElementById('toast');
+        const timg = document.getElementById('timg');
+        const tuser = document.getElementById('tuser');
+        const ttext = document.getElementById('ttext');
+        const badge = document.getElementById('badge');
+
+        const seen = new Set();
+        let lastSeenCreatedAt = null;
+
+        // Persist pin/remove states locally
+        const pinnedIDs = new Set(JSON.parse(localStorage.getItem('pinnedIDs') || '[]'));
+        const removedIDs = new Set(JSON.parse(localStorage.getItem('removedIDs') || '[]'));
+        function savePins() { localStorage.setItem('pinnedIDs', JSON.stringify([...pinnedIDs])); }
+        function saveRemoved() { localStorage.setItem('removedIDs', JSON.stringify([...removedIDs])); }
+
+        /* ========= 2) HELPERS ========= */
+        function escapeHtml(s) { return s?.replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) || ''; }
+        function linkify(text) { return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
+        function showToastPost(p) {
+            timg.src = p.image_url; tuser.textContent = p.username; ttext.textContent = p.comment;
+            toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        function makeActions() {
+            const wrap = document.createElement('div');
+            wrap.className = 'actions';
+            wrap.innerHTML = `
+            <button class="icon like" aria-label="Like" title="Like">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16.5 3.5c-1.74 0-3.41.81-4.5 2.09C10.91 4.31 9.24 3.5 7.5 3.5 4.42 3.5 2 5.92 2 8.99c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-0.82C18.6 15.85 22 12.77 22 8.99 22 5.92 19.58 3.5 16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button class="icon comment" aria-label="Comment" title="Comment">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"></path>
+              </svg>
+            </button>
+            <button class="icon share" aria-label="Share" title="Share">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22 12l-7-5v3H8a4 4 0 0 0 0 8h7v3l7-5zM2 12h3"></path>
+              </svg>
+            </button>
+          `;
+            return wrap;
+        }
+
+        function markPinned(cardEl, on) {
+            let badge = cardEl.querySelector('.pin-badge');
+            if (on) {
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.className = 'pin-badge';
+                    badge.textContent = '📌 Pinned';
+                    cardEl.appendChild(badge);
+                }
+            } else {
+                if (badge) badge.remove();
+            }
+        }
+
+        function buildMenu(cardEl, post) {
+            let menu = cardEl.querySelector('.menu');
+            if (!menu) {
+                menu = document.createElement('div');
+                menu.className = 'menu';
+                cardEl.appendChild(menu);
+            }
+            const isPinned = pinnedIDs.has(post.id);
+            menu.innerHTML = `
+            ${isPinned ? '<button data-act="unpin">Unpin</button>' : '<button data-act="pin">Pin</button>'}
+            <button data-act="remove">Remove</button>
+          `;
+            return menu;
+        }
+
+        function attachLongPress(cardEl, post) {
+            let timer = null;
+            const start = () => { if (timer) return; timer = setTimeout(() => { showMenu(cardEl, post); }, 5000); }; // 5 seconds
+            const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+            cardEl.addEventListener('pointerdown', start);
+            cardEl.addEventListener('pointerup', cancel);
+            cardEl.addEventListener('pointerleave', cancel);
+            cardEl.addEventListener('pointercancel', cancel);
+        }
+
+        function showMenu(cardEl, post) {
+            const menu = buildMenu(cardEl, post);
+            menu.style.display = 'block';
+            const onDocClick = (e) => {
+                if (!cardEl.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', onDocClick); }
+            };
+            document.addEventListener('click', onDocClick);
+
+            menu.onclick = (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                const act = btn.getAttribute('data-act');
+                if (act === 'pin') {
+                    pinnedIDs.add(post.id); savePins();
+                    markPinned(cardEl, true);
+                    grid.prepend(cardEl);
+                } else if (act === 'unpin') {
+                    pinnedIDs.delete(post.id); savePins();
+                    markPinned(cardEl, false);
+                } else if (act === 'remove') {
+                    removedIDs.add(post.id); saveRemoved();
+                    cardEl.remove();
+                }
+                menu.style.display = 'none';
+            };
+        }
+
+        function card(post) {
+            const div = document.createElement('div'); div.className = 'card';
+            div.style.setProperty('--dur', (6 + Math.random() * 8) + 's');
+            div.dataset.postId = post.id;
+
+            const user = escapeHtml(post.username);
+            const when = new Date(post.created_at).toLocaleString();
+
+            div.innerHTML = `
+            <div class="head">
+              <img class="avatar" src="${post.image_url}" alt="${user}'s profile"/>
+              <div class="user">${user}</div>
+            </div>
+            <img class="img" loading="lazy" src="${post.image_url}" alt="photo by ${user}"/>
+            <div class="actions"></div>
+            <div class="body">
+              <div class="comment-text">${linkify(escapeHtml(post.comment))}</div>
+              <div class="muted">${when}</div>
+            </div>
+            <div class="menu"></div>
+          `;
+            const actions = div.querySelector('.actions');
+            actions.replaceWith(makeActions());
+            if (pinnedIDs.has(post.id)) { markPinned(div, true); }
+            attachLongPress(div, post);
+            return div;
+        }
+
+        /* ========= 3) DATA ========= */
+        async function loadInitial() {
+            const { data, error } = await supabase
+                .from('posts')
+                .select('*')
+                .eq('approved', true)
+                .order('created_at', { ascending: false })
+                .limit(100);
+            if (error) { console.error(error); return; }
+            grid.innerHTML = '';
+            const list = [];
+            data.forEach(p => {
+                if (removedIDs.has(p.id)) return; // skip locally removed
+                if (!seen.has(p.id)) { seen.add(p.id); list.push(p); }
+            });
+            list.forEach(p => grid.appendChild(card(p)));
+            // Move pinned to the very front
+            [...grid.children].forEach(el => {
+                const id = el.dataset.postId;
+                if (pinnedIDs.has(id)) grid.prepend(el);
+            });
+            if (list.length > 0) lastSeenCreatedAt = list[0].created_at; // newest
+            if (!list.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted)">No posts yet. Scan the QR and post your first photo!</div>';
+            }
+        }
+
+        function subscribeRealtime() {
+            supabase
+                .channel('posts-changes')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
+                    const p = payload.new; if (!p.approved) return;
+                    if (removedIDs.has(p.id)) return;
+                    if (seen.has(p.id)) return;
+                    seen.add(p.id);
+                    lastSeenCreatedAt = p.created_at && (!lastSeenCreatedAt || p.created_at > lastSeenCreatedAt) ? p.created_at : lastSeenCreatedAt;
+                    const el = card(p);
+                    if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
+                    else { grid.prepend(el); }
+                    showToastPost(p);
+                })
+                .subscribe((status) => {
+                    badge.textContent = status === 'SUBSCRIBED' ? 'Connected' : status;
+                    if (status === 'CLOSED' || status === 'TIMED_OUT') {
+                        setTimeout(() => subscribeRealtime(), 1500);
+                    }
+                });
+        }
+
+        async function pollNewPosts() {
+            if (!lastSeenCreatedAt) return;
+            const { data, error } = await supabase
+                .from('posts')
+                .select('*')
+                .eq('approved', true)
+                .gt('created_at', lastSeenCreatedAt)
+                .order('created_at', { ascending: true });
+            if (error) { console.error(error); return; }
+            if (data && data.length) {
+                data.forEach(p => {
+                    if (removedIDs.has(p.id)) return;
+                    if (!seen.has(p.id)) {
+                        seen.add(p.id);
+                        const el = card(p);
+                        if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
+                        else { grid.prepend(el); }
+                        showToastPost(p);
+                    }
+                });
+                lastSeenCreatedAt = data[data.length - 1].created_at;
+            }
+        }
+
+        /* ========= 4) Like toggle ========= */
+        grid.addEventListener('click', (e) => {
+            const btn = e.target.closest('.icon.like');
+            if (btn) btn.classList.toggle('liked');
         });
-        lastSeenCreatedAt = data[data.length - 1].created_at;
-      }
-    }
 
-    grid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.icon.like');
-      if (btn) btn.classList.toggle('liked');
-    });
-
-    loadInitial();
-    subscribeRealtime();
-    setInterval(pollNewPosts, POLL_MS);
-  </script>
+        /* ========= 5) Boot ========= */
+        loadInitial();
+        subscribeRealtime();
+        setInterval(pollNewPosts, POLL_MS);
+    </script>
 </body>
 </html>
