@@ -7,23 +7,72 @@
   <style>
     :root{ --bg:#06080a; --card:#0c1116; --muted:#9aa3af; }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;color:#fff;overflow:hidden}
-    .grid{position:fixed;inset:0;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;align-content:start}
-    .card{background:var(--card);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden;animation:float var(--dur) ease-in-out infinite alternate;transform:translateY(0)}
-    .head{display:flex;gap:8px;align-items:center;padding:10px 12px}
-    .avatar{width:28px;height:28px;border-radius:50%;background:#141a20}
+    body{
+      margin:0;
+      background:#06080a; /* fallback color; JS sets background-image */
+      font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;
+      color:#fff;
+      overflow:hidden;
+    }
+    /* subtle dark overlay to keep posts readable over bright backgrounds */
+    .overlay{
+      position:fixed;inset:0;
+      background:linear-gradient(0deg,rgba(0,0,0,.40),rgba(0,0,0,.40));
+      pointer-events:none;
+      z-index:0;
+    }
+    .grid{
+      position:fixed;inset:0;padding:18px;
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+      gap:18px;align-content:start;
+      z-index:1;
+    }
+    .card{
+      background:var(--card);
+      border-radius:18px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      overflow:hidden;
+      animation:float var(--dur) ease-in-out infinite alternate;
+      transform:translateY(0)
+    }
+    .head{display:flex;gap:10px;align-items:center;padding:10px 12px}
+    .avatar{
+      width:32px;height:32px;border-radius:50%;
+      background:#141a20;object-fit:cover;flex:0 0 32px
+    }
     .user{font-weight:700;font-size:14px}
-    .img{width:100%;aspect-ratio:3/4;object-fit:cover;background:#0e1217}
+    .img{width:100%;aspect-ratio:3/4;object-fit:cover;background:#0e1217;display:block}
     .body{padding:10px 12px;color:#e5e7eb}
     .muted{color:var(--muted);font-size:12px}
+
+    /* actions row (instagram-like) */
+    .actions{display:flex;gap:14px;align-items:center;padding:10px 12px}
+    .icon{background:transparent;border:0;padding:0;cursor:pointer;display:inline-flex;align-items:center}
+    .icon svg{width:26px;height:26px;display:block}
+    .icon.like svg path{fill:none;stroke:#fff;stroke-width:2}
+    .icon.like.liked svg path{fill:#ef4444;stroke:#ef4444}
+    .icon.comment svg path,
+    .icon.share svg path{fill:none;stroke:#fff;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+    .icon:active{transform:scale(.96)}
+
     @keyframes float { to { transform: translateY(-8px); } }
-    .toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#0b0d10;border:1px solid #2a313a;padding:10px 14px;border-radius:12px;opacity:0;transition:opacity .25s, transform .25s;display:flex;gap:10px;align-items:center}
+
+    .toast{
+      position:fixed;left:50%;top:14px;transform:translateX(-50%);
+      background:#0b0d10;border:1px solid #2a313a;padding:10px 14px;border-radius:12px;
+      opacity:0;transition:opacity .25s, transform .25s;display:flex;gap:10px;align-items:center;z-index:2
+    }
     .toast.show{opacity:1;transform:translateX(-50%) translateY(6px)}
     .toast img{width:38px;height:38px;border-radius:8px;object-fit:cover}
-    .badge{position:fixed;right:12px;bottom:12px;background:#0b0d10;border:1px solid #2a313a;padding:6px 10px;border-radius:10px;color:#9aa3af;font-size:12px}
+
+    .badge{
+      position:fixed;right:12px;bottom:12px;background:#0b0d10;border:1px solid #2a313a;
+      padding:6px 10px;border-radius:10px;color:#9aa3af;font-size:12px;z-index:2
+    }
   </style>
 </head>
 <body>
+  <div class="overlay"></div>
   <div id="grid" class="grid"></div>
   <div id="badge" class="badge">Connecting…</div>
   <div id="toast" class="toast">
@@ -36,10 +85,33 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-      const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co"; // ← replace
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";               // ← replace
+    /* ===========================
+       0) CONFIG
+       =========================== */
+    // Set your background image here, or pass ?bg=URL
+    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg'; // ← replace with your JPEG filename or URL
+    const urlBG = new URLSearchParams(location.search).get('bg');
+    if (urlBG) WALL_BG = urlBG;
+    // Apply background image
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.style.backgroundImage = `url('${WALL_BG}')`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.body.style.backgroundAttachment = 'fixed';
+      document.body.style.backgroundRepeat = 'no-repeat';
+    });
+
+    // Supabase keys
+    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";           // ← replace
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";                          // ← replace
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // Fallback polling interval (ms). 1000ms = 1s. Realtime handles instant updates.
+    const POLL_MS = 1000;
+
+    /* ===========================
+       1) DOM refs
+       =========================== */
     const grid = document.getElementById('grid');
     const toast = document.getElementById('toast');
     const timg = document.getElementById('timg');
@@ -47,49 +119,150 @@
     const ttext = document.getElementById('ttext');
     const badge = document.getElementById('badge');
 
-    function card(post){
-      const div = document.createElement('div'); div.className = 'card';
-      div.style.setProperty('--dur', (6 + Math.random()*8)+'s');
-      div.innerHTML = `
-        <div class="head">
-          <div class="avatar"></div>
-          <div class="user">${escapeHtml(post.username)}</div>
-        </div>
-        <img class="img" src="${post.image_url}" alt="photo by ${escapeHtml(post.username)}"/>
-        <div class="body">
-          <div>${linkify(escapeHtml(post.comment))}</div>
-          <div class="muted">${new Date(post.created_at).toLocaleString()}</div>
-        </div>`;
-      return div;
-    }
-
+    /* ===========================
+       2) helpers
+       =========================== */
     function escapeHtml(s){ return s?.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) || ''; }
     function linkify(text){ return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
 
-    async function loadInitial(){
-      const { data, error } = await supabase.from('posts').select('*').eq('approved', true).order('created_at', { ascending: false }).limit(100);
-      if(error){ console.error(error); return; }
-      grid.innerHTML = '';
-      data.forEach(p => grid.appendChild(card(p)));
+    // simple dedupe set so realtime+polling don't duplicate cards
+    const seen = new Set();
+    let lastSeenCreatedAt = null; // ISO string
+
+    function makeActions(){
+      const wrap = document.createElement('div');
+      wrap.className = 'actions';
+      wrap.innerHTML = `
+        <button class="icon like" aria-label="Like" title="Like">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16.5 3.5c-1.74 0-3.41.81-4.5 2.09C10.91 4.31 9.24 3.5 7.5 3.5 4.42 3.5 2 5.92 2 8.99c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-0.82C18.6 15.85 22 12.77 22 8.99 22 5.92 19.58 3.5 16.5 3.5z"></path>
+          </svg>
+        </button>
+        <button class="icon comment" aria-label="Comment" title="Comment">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"></path>
+          </svg>
+        </button>
+        <button class="icon share" aria-label="Share" title="Share">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M22 12l-7-5v3H8a4 4 0 0 0 0 8h7v3l7-5zM2 12h3"></path>
+          </svg>
+        </button>
+      `;
+      return wrap;
     }
 
-    function showToast(p){
+    function card(post){
+      const div = document.createElement('div'); div.className = 'card';
+      div.style.setProperty('--dur', (6 + Math.random()*8)+'s');
+
+      const user = escapeHtml(post.username);
+      const when = new Date(post.created_at).toLocaleString();
+
+      div.innerHTML = `
+        <div class="head">
+          <img class="avatar" src="${post.image_url}" alt="${user}'s profile"/>
+          <div class="user">${user}</div>
+        </div>
+        <img class="img" loading="lazy" src="${post.image_url}" alt="photo by ${user}"/>
+        <div class="body">
+          <div>${linkify(escapeHtml(post.comment))}</div>
+          <div class="muted">${when}</div>
+        </div>
+      `;
+      // actions row (heart/comment/share)
+      div.insertBefore(makeActions(), div.querySelector('.body'));
+
+      return div;
+    }
+
+    function showToastPost(p){
       timg.src = p.image_url; tuser.textContent = p.username; ttext.textContent = p.comment;
       toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200);
     }
 
+    /* ===========================
+       3) Data loading
+       =========================== */
+    async function loadInitial(){
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('approved', true)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if(error){ console.error(error); return; }
+      grid.innerHTML = '';
+      data.forEach(p => {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          grid.appendChild(card(p));
+        }
+      });
+      if (data.length > 0) {
+        lastSeenCreatedAt = data[0].created_at; // newest
+      }
+      // empty state
+      if (!data || data.length === 0) {
+        grid.innerHTML = '<div class="muted" style="grid-column:1/-1;text-align:center;padding:24px">No posts yet. Scan the QR and post your first photo!</div>';
+      }
+    }
+
     function subscribeRealtime(){
-      const channel = supabase
+      supabase
         .channel('posts-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
           const p = payload.new; if(!p.approved) return;
-          grid.prepend(card(p)); showToast(p);
+          if (seen.has(p.id)) return;
+          seen.add(p.id);
+          lastSeenCreatedAt = p.created_at && (!lastSeenCreatedAt || p.created_at > lastSeenCreatedAt) ? p.created_at : lastSeenCreatedAt;
+          grid.prepend(card(p));
+          showToastPost(p);
         })
-        .subscribe((status) => { badge.textContent = status === 'SUBSCRIBED' ? 'Connected' : status; });
+        .subscribe((status) => {
+          badge.textContent = status === 'SUBSCRIBED' ? 'Connected' : status;
+          if (status === 'CLOSED' || status === 'TIMED_OUT') {
+            setTimeout(() => subscribeRealtime(), 1500);
+          }
+        });
     }
 
+    async function pollNewPosts(){
+      // Only poll when we have a baseline
+      const since = lastSeenCreatedAt;
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('approved', true)
+        .gt('created_at', since || '1970-01-01T00:00:00Z')
+        .order('created_at', { ascending: true }); // oldest first so we prepend in order
+      if (error) { console.error(error); return; }
+      if (data && data.length) {
+        data.forEach(p => {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            grid.prepend(card(p));
+            showToastPost(p);
+          }
+        });
+        lastSeenCreatedAt = data[data.length - 1].created_at;
+      }
+    }
+
+    /* ===========================
+       4) Like toggle (red heart)
+       =========================== */
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.icon.like');
+      if (btn) btn.classList.toggle('liked');
+    });
+
+    /* ===========================
+       5) Boot
+       =========================== */
     loadInitial();
     subscribeRealtime();
+    setInterval(pollNewPosts, POLL_MS);
   </script>
 </body>
 </html>
