@@ -7,8 +7,13 @@
   <style>
     :root { --bg:#0b0d10; --card:#12161b; --accent:#6366f1; --muted:#9aa3af; --white:#fff; }
     *{box-sizing:border-box}
-    body{margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#fff;}
-    .wrap{max-width:720px;margin:24px auto;padding:16px}
+    body{
+      margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Arial;color:#fff;
+      background:#0b0d10; /* JS sets background-image */
+      background-size:cover;background-position:center;background-attachment:fixed;background-repeat:no-repeat;
+    }
+    .bg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:0;pointer-events:none}
+    .wrap{max-width:720px;margin:24px auto;padding:16px;position:relative;z-index:1}
     h1{font-weight:700;font-size:22px;margin:0 0 12px}
     .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);position:relative;overflow:hidden}
     /* Square live view & preview */
@@ -39,9 +44,9 @@
     label{display:block;margin:10px 0 6px;color:#e5e7eb}
     input, textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #2a313a;background:#0e1217;color:#fff}
     textarea{min-height:88px;resize:vertical}
-    .postRow{display:flex;justify-content:flex-end;margin-top:10px}
+    .postRow{display:flex;justify-content:flex-end;margin-top:10px;gap:12px}
     .postBtn{display:none; background:var(--accent); color:#fff; border:0; border-radius:14px; padding:12px 16px; font-weight:700; cursor:pointer}
-    .status{color:var(--muted); align-self:center; margin-left:12px}
+    .status{color:var(--muted); align-self:center}
     .toast{position:fixed;inset:auto 16px 16px auto;background:#0b0d10;border:1px solid #2a313a;padding:12px 14px;border-radius:12px}
     .hidden{display:none !important}
     /* Tiny flash when capturing */
@@ -50,6 +55,7 @@
   </style>
 </head>
 <body>
+  <div class="bg-overlay"></div>
   <div class="wrap">
     <h1>📸 InstaWall – Post a Photo</h1>
     <div class="card">
@@ -73,8 +79,8 @@
         <textarea id="comment" placeholder="Say something nice…"></textarea>
 
         <div class="postRow">
-          <button id="post" class="postBtn">Post</button>
           <span id="status" class="status" aria-live="polite"></span>
+          <button id="post" class="postBtn">Post</button>
         </div>
       </div>
     </div>
@@ -84,6 +90,15 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    /* ========= Background Image =========
+       Set BG_URL below or pass ?bg=FULL_IMAGE_URL in the page URL */
+    let BG_URL = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg'; // ← replace with your image (or use ?bg=)
+    const bgParam = new URLSearchParams(location.search).get('bg');
+    if (bgParam) BG_URL = bgParam;
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.style.backgroundImage = `url('${BG_URL}')`;
+    });
+
     // 🔑 Supabase (use your values)
     const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
@@ -106,7 +121,10 @@
     let stream = null; let photoBlob = null; let photoType = 'image/jpeg';
 
     function showToast(msg){ toast.textContent = msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.add('hidden'), 1800); }
-    function show(el){ el.classList.remove('hidden'); } function hide(el){ el.classList.add('hidden'); }
+    function updatePostVisibility(){
+      const ok = username.value.trim().length > 0 && comment.value.trim().length > 0;
+      postBtn.style.display = ok ? 'inline-block' : 'none';
+    }
 
     async function openCamera(){
       try {
@@ -145,16 +163,11 @@
       return canvas.toDataURL('image/jpeg', 0.9);
     }
 
-    function updatePostVisibility(){
-      const ok = username.value.trim().length > 0 && comment.value.trim().length > 0;
-      postBtn.style.display = ok ? 'inline-block' : 'none';
-    }
-
     function showFields(){
       fields.style.display = 'block';
       updatePostVisibility();
-      username.addEventListener('input', updatePostVisibility);
-      comment.addEventListener('input', updatePostVisibility);
+      username.addEventListener('input', updatePostVisibility, { once:false });
+      comment.addEventListener('input', updatePostVisibility, { once:false });
     }
 
     // 📸 Capture flow
