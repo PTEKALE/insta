@@ -5,97 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>InstaWall – Uploader</title>
   <style>
-    :root { --bg:#0b0d10; --card:#12161b; --accent:#6366f1; --muted:#9aa3af; }
+    :root { --bg:#0b0d10; --card:#12161b; --accent:#6366f1; --muted:#9aa3af; --white:#fff; }
     *{box-sizing:border-box}
     body{margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#fff;}
     .wrap{max-width:720px;margin:24px auto;padding:16px}
     h1{font-weight:700;font-size:22px;margin:0 0 12px}
-    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);position:relative;overflow:hidden}
+    /* Square live view & preview */
+    .stage{position:relative}
+    video, .preview { width:100%; aspect-ratio:1/1; background:#0e1217; border-radius:16px; object-fit:cover; display:block; }
+    .preview{display:none}
+    /* Overlay controls (camera style) */
+    .controls{
+      position:absolute; left:0; right:0; bottom:12px; display:flex; align-items:center; justify-content:center; gap:16px; pointer-events:none;
+    }
+    .btn{pointer-events:auto; cursor:pointer; border:0; background:transparent; color:#fff; font-weight:700}
+    /* Shutter button: big round with inner circle */
+    .shutter{
+      width:76px; height:76px; border-radius:50%;
+      border:4px solid var(--white); background:rgba(255,255,255,0.12);
+      display:grid; place-items:center; transition:transform .06s ease;
+    }
+    .shutter:active{ transform:scale(.96); }
+    .shutter .inner{
+      width:58px; height:58px; border-radius:50%; background:var(--white);
+    }
+    /* Retake pill */
+    .retake{
+      padding:8px 14px; border-radius:999px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.35); display:none;
+    }
+    /* Form fields (hidden until capture) */
+    .fields{margin-top:14px; display:none}
     label{display:block;margin:10px 0 6px;color:#e5e7eb}
     input, textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #2a313a;background:#0e1217;color:#fff}
-    textarea{min-height:96px;resize:vertical}
-    button{cursor:pointer;border:0;border-radius:14px;padding:12px 16px;font-weight:700}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .primary{background:var(--accent);color:#fff}
-    .ghost{background:#19202a;color:#e5e7eb}
-    .muted{color:var(--muted)}
-    video,canvas,.preview{width:100%;aspect-ratio:3/4;background:#0e1217;border-radius:16px;object-fit:cover}
+    textarea{min-height:88px;resize:vertical}
+    .postRow{display:flex;justify-content:flex-end;margin-top:10px}
+    .postBtn{display:none; background:var(--accent); color:#fff; border:0; border-radius:14px; padding:12px 16px; font-weight:700; cursor:pointer}
+    .status{color:var(--muted); align-self:center; margin-left:12px}
     .toast{position:fixed;inset:auto 16px 16px auto;background:#0b0d10;border:1px solid #2a313a;padding:12px 14px;border-radius:12px}
-    .hide{display:none}
-    .bar{display:flex;align-items:center;justify-content:flex-end;margin:10px 0}
+    .hidden{display:none !important}
+    /* Tiny flash when capturing */
+    .flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .18s}
+    .flash.show{opacity:.8}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>📸 InstaWall – Post a Photo</h1>
     <div class="card">
-      <!-- No Open Camera button – only a fallback file picker -->
-      <div class="bar">
-        <label class="ghost" style="padding:12px 16px;cursor:pointer;">Choose File
-          <input type="file" id="file" accept="image/*" capture="user" style="display:none" />
-        </label>
+      <div class="stage">
+        <video id="video" playsinline muted></video>
+        <img id="preview" class="preview" alt="preview"/>
+        <div id="flash" class="flash"></div>
+        <div class="controls">
+          <button id="retake" class="btn retake">Retake</button>
+          <button id="shutter" class="btn shutter" aria-label="Capture">
+            <span class="inner"></span>
+          </button>
+        </div>
       </div>
 
-      <!-- Autostart camera preview -->
-      <video id="video" playsinline muted class="hide"></video>
-      <canvas id="canvas" class="hide"></canvas>
-      <img id="preview" class="preview hide" alt="preview"/>
+      <div id="fields" class="fields">
+        <label>Username</label>
+        <input id="username" placeholder="e.g. @alex" />
 
-      <div class="row" style="margin-top:12px">
-        <button id="capture" class="ghost">Capture Photo</button>
-        <button id="retake" class="ghost hide">Retake</button>
-      </div>
+        <label>Comment</label>
+        <textarea id="comment" placeholder="Say something nice…"></textarea>
 
-      <label>Username</label>
-      <input id="username" placeholder="e.g. @alex" />
-
-      <label>Comment</label>
-      <textarea id="comment" placeholder="Say something nice…"></textarea>
-
-      <div class="row" style="margin-top:10px">
-        <button id="post" class="primary">Post</button>
-        <span id="status" class="muted" aria-live="polite"></span>
+        <div class="postRow">
+          <button id="post" class="postBtn">Post</button>
+          <span id="status" class="status" aria-live="polite"></span>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast hide">Posting…</div>
+  <div id="toast" class="toast hidden">Posting…</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co"; // ← replace
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";               // ← replace
+    // 🔑 Supabase (use your values)
+    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const fileInput = document.getElementById('file');
+    // DOM
     const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
     const preview = document.getElementById('preview');
-    const captureBtn = document.getElementById('capture');
+    const shutterBtn = document.getElementById('shutter');
     const retakeBtn = document.getElementById('retake');
+    const flash = document.getElementById('flash');
+
+    const fields = document.getElementById('fields');
     const username = document.getElementById('username');
     const comment = document.getElementById('comment');
     const postBtn = document.getElementById('post');
-    const status = document.getElementById('status');
+    const statusEl = document.getElementById('status');
     const toast = document.getElementById('toast');
 
     let stream = null; let photoBlob = null; let photoType = 'image/jpeg';
 
-    function showToast(msg){ toast.textContent = msg; toast.classList.remove('hide'); setTimeout(()=>toast.classList.add('hide'), 1800); }
-    function show(el){ el.classList.remove('hide'); } function hide(el){ el.classList.add('hide'); }
+    function showToast(msg){ toast.textContent = msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.add('hidden'), 1800); }
+    function show(el){ el.classList.remove('hidden'); } function hide(el){ el.classList.add('hidden'); }
 
     async function openCamera(){
       try {
-        // prefer front camera for selfie flow; change to 'environment' if you want rear cam
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         video.srcObject = stream;
-        video.muted = true; // helps autoplay on some mobile browsers
+        video.muted = true;
         await video.play();
-        show(video); hide(preview); hide(canvas); show(captureBtn); hide(retakeBtn);
+        preview.style.display = 'none';
+        video.style.display = 'block';
+        retakeBtn.style.display = 'none';
       } catch (e) {
         console.warn('Camera unavailable:', e);
-        // fallback: encourage file upload
-        alert('Camera not available or permission denied. Use the file picker to upload a photo.');
+        alert('Camera not available or permission denied.');
       }
     }
 
@@ -105,26 +129,62 @@
       while(n--){ u8[n] = bstr.charCodeAt(n); } return new Blob([u8], {type: mime});
     }
 
-    captureBtn.onclick = () => {
-      if(!video.srcObject){ return; }
-      const w = 720; const h = Math.round(w / (3/4));
-      canvas.width = w; canvas.height = h;
+    // Square capture (center-crop) → 720x720 JPEG
+    function captureSquareFromVideo(){
+      const vw = video.videoWidth || 1280;
+      const vh = video.videoHeight || 720;
+      const side = Math.min(vw, vh);
+      const sx = Math.floor((vw - side) / 2);
+      const sy = Math.floor((vh - side) / 2);
+
+      const canvas = document.createElement('canvas');
+      const out = 720;
+      canvas.width = out; canvas.height = out;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out);
+      return canvas.toDataURL('image/jpeg', 0.9);
+    }
+
+    function updatePostVisibility(){
+      const ok = username.value.trim().length > 0 && comment.value.trim().length > 0;
+      postBtn.style.display = ok ? 'inline-block' : 'none';
+    }
+
+    function showFields(){
+      fields.style.display = 'block';
+      updatePostVisibility();
+      username.addEventListener('input', updatePostVisibility);
+      comment.addEventListener('input', updatePostVisibility);
+    }
+
+    // 📸 Capture flow
+    shutterBtn.onclick = () => {
+      // flash effect
+      flash.classList.add('show');
+      setTimeout(()=>flash.classList.remove('show'), 120);
+
+      const dataUrl = captureSquareFromVideo();
       photoBlob = dataURLtoBlob(dataUrl); photoType = 'image/jpeg';
-      preview.src = dataUrl; show(preview); hide(video); hide(canvas);
-      hide(captureBtn); show(retakeBtn);
+      preview.src = dataUrl;
+      preview.style.display = 'block';
+      video.style.display = 'none';
+      retakeBtn.style.display = 'inline-block';
+
+      // reveal username/comment; post stays hidden until both filled
+      showFields();
     };
 
-    retakeBtn.onclick = () => { photoBlob = null; openCamera(); };
-
-    fileInput.onchange = (e) => {
-      const file = e.target.files[0]; if(!file) return;
-      photoBlob = file; photoType = file.type || 'image/jpeg';
-      const reader = new FileReader();
-      reader.onload = () => { preview.src = reader.result; show(preview); hide(video); hide(canvas); hide(captureBtn); show(retakeBtn); };
-      reader.readAsDataURL(file);
+    retakeBtn.onclick = () => {
+      photoBlob = null;
+      preview.src = '';
+      preview.style.display = 'none';
+      video.style.display = 'block';
+      retakeBtn.style.display = 'none';
+      // hide fields again to keep camera-first flow
+      fields.style.display = 'none';
+      postBtn.style.display = 'none';
+      username.value = '';
+      comment.value = '';
     };
 
     async function uploadPhoto(blob){
@@ -138,19 +198,26 @@
     }
 
     postBtn.onclick = async () => {
-      if(!photoBlob){ alert('Capture or choose a photo first.'); return; }
+      if(!photoBlob){ alert('Capture a photo first.'); return; }
       const name = username.value.trim() || '@guest';
       const text = comment.value.trim();
-      if(!text){ alert('Please write a comment.'); return; }
-      postBtn.disabled = true; status.textContent = 'Uploading…'; showToast('Posting…');
+      if(!text){ return; }
+
+      postBtn.disabled = true; statusEl.textContent = 'Uploading…'; showToast('Posting…');
       try {
         const image_url = await uploadPhoto(photoBlob);
         const { error: dbErr } = await supabase.from('posts').insert({ username: name, comment: text, image_url });
         if(dbErr) throw dbErr;
-        status.textContent = '✅ Posted!'; showToast('✅ Posted');
-        comment.value = ''; photoBlob = null; preview.src = ''; hide(preview); show(video); hide(retakeBtn); show(captureBtn);
+        statusEl.textContent = '✅ Posted!'; showToast('✅ Posted');
+
+        // soft reset, stay ready for next capture
+        username.value = ''; comment.value = '';
+        postBtn.style.display = 'none';
+        preview.src = ''; preview.style.display = 'none';
+        video.style.display = 'block'; retakeBtn.style.display = 'none';
+        fields.style.display = 'none';
       } catch(err){
-        console.error(err); status.textContent = '❌ Failed to post'; alert('Failed to post: '+ err.message);
+        console.error(err); statusEl.textContent = '❌ Failed to post'; alert('Failed to post: '+ err.message);
       } finally { postBtn.disabled = false; }
     };
 
@@ -159,5 +226,3 @@
   </script>
 </body>
 </html>
-
-
