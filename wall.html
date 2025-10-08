@@ -5,74 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>InstaWall – Live Wall</title>
   <style>
-    :root{ --bg:#06080a; --card:#0c1116; --muted:#9aa3af; }
+    :root{
+      --card-bg:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --shadow:0 10px 30px rgba(0,0,0,.12);
+      --menu-bg:#ffffff;
+    }
     *{box-sizing:border-box}
     body{
       margin:0;
-      background:#06080a; /* fallback color; JS sets background-image */
+      background:#f5f7fb; /* JS sets background-image */
       font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;
-      color:#fff;
+      color:var(--text);
       overflow:hidden;
     }
-    /* subtle dark overlay to keep posts readable over bright backgrounds */
-    .overlay{
-      position:fixed;inset:0;
-      background:linear-gradient(0deg,rgba(0,0,0,.40),rgba(0,0,0,.40));
-      pointer-events:none;
-      z-index:0;
-    }
     .grid{
-      position:fixed;inset:0;padding:18px;
-      display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-      gap:18px;align-content:start;
+      position:fixed; inset:0; padding:18px;
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      gap:18px; align-content:start;
+      overflow:auto; /* allow scrolling when many cards */
       z-index:1;
     }
     .card{
-      background:var(--card);
+      position:relative;
+      background:var(--card-bg);
+      border:1px solid var(--border);
       border-radius:18px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      box-shadow:var(--shadow);
       overflow:hidden;
       animation:float var(--dur) ease-in-out infinite alternate;
-      transform:translateY(0)
+      transform:translateY(0);
+      touch-action:manipulation;
+      user-select:none;
+    }
+    .pin-badge{
+      position:absolute; top:8px; right:8px;
+      background:#fff; border:1px solid var(--border);
+      border-radius:999px; padding:2px 6px; font-size:12px;
+      box-shadow:var(--shadow);
     }
     .head{display:flex;gap:10px;align-items:center;padding:10px 12px}
     .avatar{
-      width:32px;height:32px;border-radius:50%;
-      background:#141a20;object-fit:cover;flex:0 0 32px
+      width:36px;height:36px;border-radius:50%;
+      background:#f1f5f9;object-fit:cover;flex:0 0 36px;border:1px solid var(--border)
     }
-    .user{font-weight:700;font-size:14px}
-    .img{width:100%;aspect-ratio:3/4;object-fit:cover;background:#0e1217;display:block}
-    .body{padding:10px 12px;color:#e5e7eb}
-    .muted{color:var(--muted);font-size:12px}
-
-    /* actions row (instagram-like) */
+    .user{font-weight:700;font-size:14px;color:var(--text)}
+    /* Square (1:1) image like Instagram */
+    .img{
+      width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:#f1f5f9;
+    }
     .actions{display:flex;gap:14px;align-items:center;padding:10px 12px}
     .icon{background:transparent;border:0;padding:0;cursor:pointer;display:inline-flex;align-items:center}
     .icon svg{width:26px;height:26px;display:block}
-    .icon.like svg path{fill:none;stroke:#fff;stroke-width:2}
+    .icon.like svg path{fill:none;stroke:#111;stroke-width:2}
     .icon.like.liked svg path{fill:#ef4444;stroke:#ef4444}
     .icon.comment svg path,
-    .icon.share svg path{fill:none;stroke:#fff;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+    .icon.share svg path{fill:none;stroke:#111;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
     .icon:active{transform:scale(.96)}
-
+    .body{padding:10px 12px;color:var(--text)}
+    .comment-text{font-size:17px;line-height:1.45;}
+    .muted{color:var(--muted);font-size:12px;margin-top:6px}
     @keyframes float { to { transform: translateY(-8px); } }
 
+    /* Toast + Badge */
     .toast{
       position:fixed;left:50%;top:14px;transform:translateX(-50%);
-      background:#0b0d10;border:1px solid #2a313a;padding:10px 14px;border-radius:12px;
-      opacity:0;transition:opacity .25s, transform .25s;display:flex;gap:10px;align-items:center;z-index:2
+      background:#ffffff;border:1px solid var(--border);padding:10px 14px;border-radius:12px;
+      box-shadow:var(--shadow);
+      opacity:0;transition:opacity .25s, transform .25s;display:flex;gap:10px;align-items:center;z-index:3;color:var(--text)
     }
     .toast.show{opacity:1;transform:translateX(-50%) translateY(6px)}
-    .toast img{width:38px;height:38px;border-radius:8px;object-fit:cover}
-
+    .toast img{width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border)}
     .badge{
-      position:fixed;right:12px;bottom:12px;background:#0b0d10;border:1px solid #2a313a;
-      padding:6px 10px;border-radius:10px;color:#9aa3af;font-size:12px;z-index:2
+      position:fixed;right:12px;bottom:12px;background:#ffffff;border:1px solid var(--border);
+      padding:6px 10px;border-radius:10px;color:var(--muted);font-size:12px;z-index:2;box-shadow:var(--shadow)
     }
+
+    /* Long-press menu */
+    .menu{
+      position:absolute; right:8px; top:8px; z-index:4;
+      background:var(--menu-bg); border:1px solid var(--border); border-radius:12px;
+      box-shadow:var(--shadow); overflow:hidden; display:none;
+    }
+    .menu button{
+      display:block; width:160px; padding:10px 12px; text-align:left;
+      background:#fff; border:0; border-bottom:1px solid var(--border); color:var(--text); cursor:pointer;
+      font:14px system-ui,Segoe UI,Roboto,Arial;
+    }
+    .menu button:last-child{ border-bottom:0; }
+    .menu button:hover{ background:#f8fafc; }
   </style>
 </head>
 <body>
-  <div class="overlay"></div>
   <div id="grid" class="grid"></div>
   <div id="badge" class="badge">Connecting…</div>
   <div id="toast" class="toast">
@@ -85,14 +111,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    /* ===========================
-       0) CONFIG
-       =========================== */
-    // Set your background image here, or pass ?bg=URL
-    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg'; // ← replace with your JPEG filename or URL
+    /* ========= 0) CONFIG ========= */
+    // Background image (file next to wall.html OR external URL via ?bg=)
+    let WALL_BG = 'https://ruljtbhgudrfocgwcnoe.supabase.co/storage/v1/object/public/photos/Alimco.jpg'; // ← replace with your JPEG
     const urlBG = new URLSearchParams(location.search).get('bg');
     if (urlBG) WALL_BG = urlBG;
-    // Apply background image
     document.addEventListener('DOMContentLoaded', () => {
       document.body.style.backgroundImage = `url('${WALL_BG}')`;
       document.body.style.backgroundSize = 'cover';
@@ -101,17 +124,15 @@
       document.body.style.backgroundRepeat = 'no-repeat';
     });
 
-    // Supabase keys
-    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";           // ← replace
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";                          // ← replace
+    // Supabase (replace)
+    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Fallback polling interval (ms). 1000ms = 1s. Realtime handles instant updates.
+    // Poll every 1s as fallback
     const POLL_MS = 1000;
 
-    /* ===========================
-       1) DOM refs
-       =========================== */
+    /* ========= 1) STATE ========= */
     const grid = document.getElementById('grid');
     const toast = document.getElementById('toast');
     const timg = document.getElementById('timg');
@@ -119,15 +140,22 @@
     const ttext = document.getElementById('ttext');
     const badge = document.getElementById('badge');
 
-    /* ===========================
-       2) helpers
-       =========================== */
+    const seen = new Set();
+    let lastSeenCreatedAt = null;
+
+    // Persist pin/remove states locally
+    const pinnedIDs = new Set(JSON.parse(localStorage.getItem('pinnedIDs') || '[]'));
+    const removedIDs = new Set(JSON.parse(localStorage.getItem('removedIDs') || '[]'));
+    function savePins(){ localStorage.setItem('pinnedIDs', JSON.stringify([...pinnedIDs])); }
+    function saveRemoved(){ localStorage.setItem('removedIDs', JSON.stringify([...removedIDs])); }
+
+    /* ========= 2) HELPERS ========= */
     function escapeHtml(s){ return s?.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) || ''; }
     function linkify(text){ return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
-
-    // simple dedupe set so realtime+polling don't duplicate cards
-    const seen = new Set();
-    let lastSeenCreatedAt = null; // ISO string
+    function showToastPost(p){
+      timg.src = p.image_url; tuser.textContent = p.username; ttext.textContent = p.comment;
+      toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200);
+    }
 
     function makeActions(){
       const wrap = document.createElement('div');
@@ -152,9 +180,78 @@
       return wrap;
     }
 
+    function markPinned(cardEl, on){
+      let badge = cardEl.querySelector('.pin-badge');
+      if(on){
+        if(!badge){
+          badge = document.createElement('div');
+          badge.className = 'pin-badge';
+          badge.textContent = '📌 Pinned';
+          cardEl.appendChild(badge);
+        }
+      } else {
+        if (badge) badge.remove();
+      }
+    }
+
+    function buildMenu(cardEl, post){
+      let menu = cardEl.querySelector('.menu');
+      if(!menu){
+        menu = document.createElement('div');
+        menu.className = 'menu';
+        cardEl.appendChild(menu);
+      }
+      const isPinned = pinnedIDs.has(post.id);
+      menu.innerHTML = `
+        ${isPinned ? '<button data-act="unpin">Unpin</button>' : '<button data-act="pin">Pin</button>'}
+        <button data-act="remove">Remove</button>
+      `;
+      return menu;
+    }
+
+    function attachLongPress(cardEl, post){
+      let timer = null;
+      const start = ()=>{ if(timer) return; timer = setTimeout(()=>{ showMenu(cardEl, post); }, 5000); }; // 5 seconds
+      const cancel = ()=>{ if(timer){ clearTimeout(timer); timer=null; } };
+      cardEl.addEventListener('pointerdown', start);
+      cardEl.addEventListener('pointerup', cancel);
+      cardEl.addEventListener('pointerleave', cancel);
+      cardEl.addEventListener('pointercancel', cancel);
+    }
+
+    function showMenu(cardEl, post){
+      const menu = buildMenu(cardEl, post);
+      menu.style.display = 'block';
+      // Hide when clicking outside this card
+      const onDocClick = (e)=>{
+        if(!cardEl.contains(e.target)){ menu.style.display='none'; document.removeEventListener('click', onDocClick); }
+      };
+      document.addEventListener('click', onDocClick);
+
+      menu.onclick = (e)=>{
+        const btn = e.target.closest('button');
+        if(!btn) return;
+        const act = btn.getAttribute('data-act');
+        if(act === 'pin'){
+          pinnedIDs.add(post.id); savePins();
+          markPinned(cardEl, true);
+          grid.prepend(cardEl);
+        } else if(act === 'unpin'){
+          pinnedIDs.delete(post.id); savePins();
+          markPinned(cardEl, false);
+          // keep in place; new posts will still appear after any remaining pins
+        } else if(act === 'remove'){
+          removedIDs.add(post.id); saveRemoved();
+          cardEl.remove();
+        }
+        menu.style.display = 'none';
+      };
+    }
+
     function card(post){
       const div = document.createElement('div'); div.className = 'card';
       div.style.setProperty('--dur', (6 + Math.random()*8)+'s');
+      div.dataset.postId = post.id;
 
       const user = escapeHtml(post.username);
       const when = new Date(post.created_at).toLocaleString();
@@ -165,25 +262,28 @@
           <div class="user">${user}</div>
         </div>
         <img class="img" loading="lazy" src="${post.image_url}" alt="photo by ${user}"/>
+        <div class="actions"></div>
         <div class="body">
-          <div>${linkify(escapeHtml(post.comment))}</div>
+          <div class="comment-text">${linkify(escapeHtml(post.comment))}</div>
           <div class="muted">${when}</div>
         </div>
+        <div class="menu"></div>
       `;
-      // actions row (heart/comment/share)
-      div.insertBefore(makeActions(), div.querySelector('.body'));
+
+      // actions row
+      const actions = div.querySelector('.actions');
+      actions.replaceWith(makeActions());
+
+      // pin badge if needed
+      if (pinnedIDs.has(post.id)) { markPinned(div, true); }
+
+      // long-press
+      attachLongPress(div, post);
 
       return div;
     }
 
-    function showToastPost(p){
-      timg.src = p.image_url; tuser.textContent = p.username; ttext.textContent = p.comment;
-      toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2200);
-    }
-
-    /* ===========================
-       3) Data loading
-       =========================== */
+    /* ========= 3) DATA ========= */
     async function loadInitial(){
       const { data, error } = await supabase
         .from('posts')
@@ -193,18 +293,23 @@
         .limit(100);
       if(error){ console.error(error); return; }
       grid.innerHTML = '';
+      // Build normal then move pinned to front
+      const list = [];
       data.forEach(p => {
-        if (!seen.has(p.id)) {
-          seen.add(p.id);
-          grid.appendChild(card(p));
-        }
+        if (removedIDs.has(p.id)) return; // skip removed
+        if (!seen.has(p.id)) { seen.add(p.id); list.push(p); }
       });
-      if (data.length > 0) {
-        lastSeenCreatedAt = data[0].created_at; // newest
-      }
-      // empty state
-      if (!data || data.length === 0) {
-        grid.innerHTML = '<div class="muted" style="grid-column:1/-1;text-align:center;padding:24px">No posts yet. Scan the QR and post your first photo!</div>';
+      list.forEach(p => grid.appendChild(card(p)));
+      // Move pinned cards to the very front (keeps left/top start)
+      [...grid.children].forEach(el => {
+        const id = el.dataset.postId;
+        if (pinnedIDs.has(id)) grid.prepend(el);
+      });
+
+      if (list.length > 0) lastSeenCreatedAt = list[0].created_at; // newest
+
+      if (!list.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted)">No posts yet. Scan the QR and post your first photo!</div>';
       }
     }
 
@@ -213,10 +318,13 @@
         .channel('posts-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
           const p = payload.new; if(!p.approved) return;
+          if (removedIDs.has(p.id)) return; // user removed locally
           if (seen.has(p.id)) return;
           seen.add(p.id);
           lastSeenCreatedAt = p.created_at && (!lastSeenCreatedAt || p.created_at > lastSeenCreatedAt) ? p.created_at : lastSeenCreatedAt;
-          grid.prepend(card(p));
+          const el = card(p);
+          if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
+          else { grid.prepend(el); }
           showToastPost(p);
         })
         .subscribe((status) => {
@@ -228,20 +336,22 @@
     }
 
     async function pollNewPosts(){
-      // Only poll when we have a baseline
-      const since = lastSeenCreatedAt;
+      if (!lastSeenCreatedAt) return;
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .eq('approved', true)
-        .gt('created_at', since || '1970-01-01T00:00:00Z')
-        .order('created_at', { ascending: true }); // oldest first so we prepend in order
+        .gt('created_at', lastSeenCreatedAt)
+        .order('created_at', { ascending: true });
       if (error) { console.error(error); return; }
       if (data && data.length) {
         data.forEach(p => {
+          if (removedIDs.has(p.id)) return;
           if (!seen.has(p.id)) {
             seen.add(p.id);
-            grid.prepend(card(p));
+            const el = card(p);
+            if (pinnedIDs.has(p.id)) { markPinned(el, true); grid.prepend(el); }
+            else { grid.prepend(el); }
             showToastPost(p);
           }
         });
@@ -249,17 +359,13 @@
       }
     }
 
-    /* ===========================
-       4) Like toggle (red heart)
-       =========================== */
+    /* ========= 4) Like toggle ========= */
     grid.addEventListener('click', (e) => {
       const btn = e.target.closest('.icon.like');
       if (btn) btn.classList.toggle('liked');
     });
 
-    /* ===========================
-       5) Boot
-       =========================== */
+    /* ========= 5) Boot ========= */
     loadInitial();
     subscribeRealtime();
     setInterval(pollNewPosts, POLL_MS);
