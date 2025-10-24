@@ -1,328 +1,362 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>InstaWall – Export (Excel & PDF)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>InstaWall – Export (Images in Excel & PDF + .xlsx)</title>
   <style>
     :root{ --bg:#0b0d10; --card:#12161b; --accent:#22c55e; --muted:#9aa3af; --text:#fff; }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,Segoe UI,Roboto,Arial}
-    .wrap{max-width:920px;margin:28px auto;padding:16px}
+    .wrap{max-width:980px;margin:28px auto;padding:16px}
     h1{margin:0 0 10px;font-size:22px}
     .card{background:var(--card);border:1px solid #202733;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .grow{flex:1}
     label{display:flex;align-items:center;gap:8px}
-    input, select{background:#0e1217;border:1px solid #2a313a;color:#fff;padding:10px;border-radius:12px}
+    input{background:#0e1217;border:1px solid #2a313a;color:#fff;padding:10px;border-radius:12px}
     .btn{cursor:pointer;border:0;border-radius:12px;padding:12px 16px;font-weight:700}
     .btn.primary{background:var(--accent);color:#051b0b}
     .btn.ghost{background:#19202a;color:#e5e7eb}
     .muted{color:var(--muted)}
     .hr{height:1px;background:#1f2530;margin:14px 0}
-    .table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
-    .table th,.table td{border-bottom:1px solid #222a35;padding:8px 10px;text-align:left}
+    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+    th,td{border-bottom:1px solid #222a35;padding:8px 10px;text-align:left;vertical-align:top}
     .badge{display:inline-block;background:#141b23;border:1px solid #2a313a;border-radius:999px;padding:6px 10px;color:#c7d2fe}
     .hint{font-size:12px;color:#a3aab6}
     #status{margin-left:8px}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>📤 Export InstaWall Data</h1>
-    <div class="card">
-      <div class="row">
-        <label><input type="checkbox" id="onlyApproved" checked/> Only approved posts</label>
-        <label>From <input type="date" id="fromDate"></label>
-        <label>To <input type="date" id="toDate"></label>
-        <button id="refresh" class="btn ghost">Preview</button>
-        <span id="status" class="muted"></span>
-      </div>
+<div class="wrap">
+  <h1>📤 Export InstaWall Data</h1>
+  <div class="card">
+    <div class="row">
+      <label><input type="checkbox" id="onlyApproved" checked/> Only approved posts</label>
+      <label>From <input type="date" id="fromDate"></label>
+      <label>To <input type="date" id="toDate"></label>
+      <button id="refresh" class="btn ghost">Preview</button>
+      <span id="status" class="muted"></span>
+    </div>
 
-      <div class="hr"></div>
+    <div class="hr"></div>
 
-      <div class="row">
-        <button id="excelBtn" class="btn primary">Download Excel (.xlsx)</button>
-        <button id="pdfBtn" class="btn ghost">Download PDF (.pdf)</button>
-        <span class="hint">PDF includes small image thumbnails • Excel contains image URLs</span>
-      </div>
+    <div class="row">
+      <button id="xlsImgBtn" class="btn primary">Excel (.xls with images)</button>
+      <button id="pdfBtn" class="btn ghost">PDF (.pdf with images)</button>
+      <button id="xlsxBtn" class="btn ghost">Excel (.xlsx no images)</button>
+      <span class="hint">.xls & PDF embed thumbnails • .xlsx includes a Photo URL column</span>
+    </div>
 
-      <table class="table" id="previewTable">
+    <table id="previewTable">
+      <thead>
+      <tr>
+        <th>#</th>
+        <th>Username</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Comment</th>
+        <th>Photo</th>
+      </tr>
+      </thead>
+      <tbody id="previewBody">
+      <tr><td colspan="6" class="muted">Click <span class="badge">Preview</span> to see latest rows…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- libs -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+  // ==== 1) Supabase config (REPLACE with your project values) ====
+  const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co/";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ==== 2) UI refs ====
+  const onlyApproved = document.getElementById('onlyApproved');
+  const fromDate = document.getElementById('fromDate');
+  const toDate = document.getElementById('toDate');
+  const refreshBtn = document.getElementById('refresh');
+  const xlsImgBtn = document.getElementById('xlsImgBtn');
+  const pdfBtn = document.getElementById('pdfBtn');
+  const xlsxBtn = document.getElementById('xlsxBtn');
+  const statusEl = document.getElementById('status');
+  const previewBody = document.getElementById('previewBody');
+
+  // ==== 3) Fetch posts (fields you have) ====
+  async function fetchPosts() {
+    let query = supabase.from('posts')
+      .select('id,username,comment,image_url,created_at,approved')
+      .order('created_at', { ascending: true });
+
+    if (onlyApproved.checked) query = query.eq('approved', true);
+
+    const f = fromDate.value ? new Date(fromDate.value) : null;
+    const t = toDate.value ? new Date(toDate.value) : null;
+
+    if (f) query = query.gte('created_at', f.toISOString());
+    if (t) { t.setHours(23,59,59,999); query = query.lte('created_at', t.toISOString()); }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  // ==== 4) Preview table ====
+  function renderPreview(rows){
+    previewBody.innerHTML = '';
+    if (!rows.length) {
+      previewBody.innerHTML = '<tr><td colspan="6" class="muted">No rows for the selected filters.</td></tr>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    rows.forEach((r, i) => {
+      const dt = new Date(r.created_at);
+      const dateStr = dt.toLocaleDateString();
+      const timeStr = dt.toLocaleTimeString();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${escapeHtml(r.username || '')}</td>
+        <td>${dateStr}</td>
+        <td>${timeStr}</td>
+        <td>${escapeHtml(r.comment || '')}</td>
+        <td><a href="${r.image_url}" target="_blank" rel="noopener">Open</a></td>
+      `;
+      frag.appendChild(tr);
+    });
+    previewBody.appendChild(frag);
+  }
+
+  function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function yyyyMMdd(){
+    const d = new Date();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  // ==== 5) Excel-compatible .xls with inline images ====
+  async function exportXlsWithImages(rows){
+    const thumbs = await loadThumbnails(rows.map(r => r.image_url), 96);
+    let html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8"/>
+        <!--[if gte mso 9]><xml>
+        <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+        <x:Name>Posts</x:Name>
+        <x:WorksheetOptions><x:Print><x:ValidPrinterInfo/></x:Print></x:WorksheetOptions>
+        </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+        </xml><![endif]-->
+        <style>
+          table{border-collapse:collapse}
+          td,th{border:1px solid #999;padding:6px 8px;font-family:Segoe UI,Arial,sans-serif;font-size:12px;vertical-align:top}
+          .imgcell img{width:96px;height:96px;object-fit:cover;display:block}
+        </style>
+      </head>
+      <body>
+      <table>
         <thead>
           <tr>
             <th>#</th>
-            <th>Name</th>
             <th>Username</th>
             <th>Date</th>
             <th>Time</th>
             <th>Comment</th>
-            <th>Likes</th>
             <th>Photo</th>
           </tr>
         </thead>
-        <tbody id="previewBody">
-          <tr><td colspan="8" class="muted">Click <span class="badge">Preview</span> to see latest rows…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- libs -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-
-  <script>
-    // --- 1) Supabase config (REPLACE with your project) ---
-    const SUPABASE_URL = "https://ruljtbhgudrfocgwcnoe.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1bGp0YmhndWRyZm9jZ3djbm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MDE5OTEsImV4cCI6MjA3NTM3Nzk5MX0.QAbmN26benW_dolUKPtWx-oOylwIRjYvvlSoTx-U_bk";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // --- 2) UI refs ---
-    const onlyApproved = document.getElementById('onlyApproved');
-    const fromDate = document.getElementById('fromDate');
-    const toDate = document.getElementById('toDate');
-    const refreshBtn = document.getElementById('refresh');
-    const excelBtn = document.getElementById('excelBtn');
-    const pdfBtn = document.getElementById('pdfBtn');
-    const statusEl = document.getElementById('status');
-    const previewBody = document.getElementById('previewBody');
-
-    // --- 3) Fetch posts from Supabase ---
-    async function fetchPosts() {
-      let query = supabase.from('posts')
-        .select('id,name,username,comment,image_url,created_at,likes,approved')
-        .order('created_at', { ascending: true });
-
-      if (onlyApproved.checked) query = query.eq('approved', true);
-
-      const f = fromDate.value ? new Date(fromDate.value) : null;
-      const t = toDate.value ? new Date(toDate.value) : null;
-
-      if (f) query = query.gte('created_at', f.toISOString());
-      if (t) {
-        // include entire day
-        t.setHours(23,59,59,999);
-        query = query.lte('created_at', t.toISOString());
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    }
-
-    // --- 4) Preview table rendering ---
-    function renderPreview(rows) {
-      previewBody.innerHTML = '';
-      if (!rows.length) {
-        previewBody.innerHTML = '<tr><td colspan="8" class="muted">No rows for the selected filters.</td></tr>';
-        return;
-      }
-      const frag = document.createDocumentFragment();
-      rows.forEach((r, i) => {
-        const tr = document.createElement('tr');
-        const dt = new Date(r.created_at);
-        const dateStr = dt.toLocaleDateString();
-        const timeStr = dt.toLocaleTimeString();
-        const likes = r.likes ?? 0;
-        const name = r.name || (r.username ? r.username.replace(/^@/,'') : '');
-
-        tr.innerHTML = `
+        <tbody>
+    `;
+    rows.forEach((r, i) => {
+      const dt = new Date(r.created_at);
+      const img = thumbs[i] ? `<img src="${thumbs[i]}"/>` : '';
+      html += `
+        <tr>
           <td>${i+1}</td>
-          <td>${escapeHtml(name)}</td>
           <td>${escapeHtml(r.username || '')}</td>
-          <td>${dateStr}</td>
-          <td>${timeStr}</td>
+          <td>${dt.toLocaleDateString()}</td>
+          <td>${dt.toLocaleTimeString()}</td>
           <td>${escapeHtml(r.comment || '')}</td>
-          <td>${likes}</td>
-          <td><a href="${r.image_url}" target="_blank" rel="noopener">Open</a></td>
-        `;
-        frag.appendChild(tr);
-      });
-      previewBody.appendChild(frag);
-    }
+          <td class="imgcell">${img}</td>
+        </tr>`;
+    });
+    html += `</tbody></table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    downloadBlob(blob, `instawall_posts_${yyyyMMdd()}.xls`);
+  }
 
-    function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  // ==== 6) PDF export with thumbnails ====
+  async function exportPDF(rows){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(14);
+    doc.text(`InstaWall Export — ${new Date().toLocaleString()}`, 40, 40);
 
-    // --- 5) Excel export (XLSX) ---
-    function exportExcel(rows){
-      const sheetData = rows.map(r => {
-        const dt = new Date(r.created_at);
-        const name = r.name || (r.username ? r.username.replace(/^@/,'') : '');
-        return {
-          "Name": name,
-          "Username": r.username || "",
-          "Date": dt.toLocaleDateString(),
-          "Time": dt.toLocaleTimeString(),
-          "Comment": r.comment || "",
-          "Likes": r.likes ?? 0,
-          "Photo URL": r.image_url || ""
-        };
-      });
-      const ws = XLSX.utils.json_to_sheet(sheetData, { header: ["Name","Username","Date","Time","Comment","Likes","Photo URL"] });
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Posts");
-      XLSX.writeFile(wb, `instawall_posts_${yyyyMMdd()}.xlsx`);
-    }
+    const thumbs = await loadThumbnails(rows.map(r => r.image_url), 72);
+    const body = rows.map((r, idx) => {
+      const dt = new Date(r.created_at);
+      return [
+        String(idx+1),
+        r.username || '',
+        dt.toLocaleDateString(),
+        dt.toLocaleTimeString(),
+        r.comment || '',
+        { image: thumbs[idx], url: r.image_url || '' }
+      ];
+    });
 
-    function yyyyMMdd(){
-      const d = new Date();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      return `${d.getFullYear()}-${m}-${day}`;
-    }
-
-    // --- 6) PDF export (jsPDF + autoTable with thumbnails) ---
-    async function exportPDF(rows){
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-
-      // Title
-      doc.setFontSize(14);
-      doc.text(`InstaWall Export — ${new Date().toLocaleString()}`, 40, 40);
-
-      // Preload small image thumbnails (max 48x48)
-      const thumbs = await loadThumbnails(rows.map(r => r.image_url), 48);
-
-      // Build table rows
-      const body = rows.map((r, idx) => {
-        const dt = new Date(r.created_at);
-        const name = r.name || (r.username ? r.username.replace(/^@/,'') : '');
-        return [
-          String(idx+1),
-          name,
-          r.username || '',
-          dt.toLocaleDateString(),
-          dt.toLocaleTimeString(),
-          r.comment || '',
-          String(r.likes ?? 0),
-          { image: thumbs[idx], url: r.image_url || '' } // custom cell payload for photo
-        ];
-      });
-
-      // Render with autoTable
-      doc.autoTable({
-        startY: 60,
-        head: [['#','Name','Username','Date','Time','Comment','Likes','Photo']],
-        body,
-        styles: { fontSize: 9, cellPadding: 5, overflow: 'linebreak' },
-        columnStyles: {
-          0: { cellWidth: 24 },
-          1: { cellWidth: 100 },
-          2: { cellWidth: 100 },
-          3: { cellWidth: 70 },
-          4: { cellWidth: 70 },
-          5: { cellWidth: 280 }, // comment wider
-          6: { cellWidth: 45, halign:'center' },
-          7: { cellWidth: 70 }   // photo thumb
-        },
-        didDrawCell: data => {
-          // Draw image in the Photo column (last column index 7)
-          if (data.section === 'body' && data.column.index === 7) {
-            const cell = data.cell;
-            const payload = data.row.raw[7];
-            if (payload && payload.image) {
-              const pad = 6;
-              const w = Math.min(48, cell.width - pad*2);
-              const h = Math.min(48, cell.height - pad*2);
-              const x = cell.x + pad;
-              const y = cell.y + (cell.height - h)/2;
-              try { doc.addImage(payload.image, 'JPEG', x, y, w, h); } catch(e){}
-            }
+    doc.autoTable({
+      startY: 60,
+      head: [['#','Username','Date','Time','Comment','Photo']],
+      body,
+      styles: { fontSize: 9, cellPadding: 5, overflow: 'linebreak' },
+      columnStyles: { 0:{cellWidth:24},1:{cellWidth:120},2:{cellWidth:80},3:{cellWidth:80},4:{cellWidth:330},5:{cellWidth:90} },
+      didDrawCell: data => {
+        if (data.section === 'body' && data.column.index === 5) {
+          const cell = data.cell;
+          const payload = data.row.raw[5];
+          if (payload && payload.image) {
+            const pad = 6;
+            const w = Math.min(72, cell.width - pad*2);
+            const h = Math.min(72, cell.height - pad*2);
+            const x = cell.x + pad;
+            const y = cell.y + (cell.height - h)/2;
+            try { doc.addImage(payload.image, 'JPEG', x, y, w, h); } catch(e){}
           }
         }
-      });
-
-      doc.save(`instawall_posts_${yyyyMMdd()}.pdf`);
-    }
-
-    async function loadThumbnails(urls, size){
-      // Fetch images as blobs, draw to offscreen canvas, return dataURL (JPEG)
-      const out = [];
-      for (const url of urls) {
-        try {
-          if (!url) { out.push(null); continue; }
-          const res = await fetch(url, { mode:'cors' });
-          const blob = await res.blob();
-          const img = await blobToImage(blob);
-          const canvas = document.createElement('canvas');
-          const side = size;
-          canvas.width = side; canvas.height = side;
-          const ctx = canvas.getContext('2d');
-          // cover fit
-          const [sx, sy, s, ] = coverCrop(img.naturalWidth, img.naturalHeight);
-          ctx.drawImage(img, sx, sy, s, s, 0, 0, side, side);
-          out.push(canvas.toDataURL('image/jpeg', 0.85));
-        } catch(e) { out.push(null); }
       }
-      return out;
-    }
+    });
 
-    function coverCrop(iw, ih){
-      const s = Math.min(iw, ih);
-      const sx = Math.floor((iw - s) / 2);
-      const sy = Math.floor((ih - s) / 2);
-      return [sx, sy, s, s];
-    }
-    function blobToImage(blob){
-      return new Promise((resolve,reject)=>{
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
-        img.onerror = reject;
-        img.src = url;
-      });
-    }
+    doc.save(`instawall_posts_${yyyyMMdd()}.pdf`);
+  }
 
-    // --- 7) Wire up UI ---
-    refreshBtn.onclick = async () => {
-      statusEl.textContent = 'Loading…';
+  // ==== 7) Pure .xlsx (no images, includes Photo URL) ====
+  function exportXlsxNoImages(rows){
+    const sheetData = rows.map(r => {
+      const dt = new Date(r.created_at);
+      return {
+        "Username": r.username || "",
+        "Date": dt.toLocaleDateString(),
+        "Time": dt.toLocaleTimeString(),
+        "Comment": r.comment || "",
+        "Photo URL": r.image_url || ""
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(sheetData, { header: ["Username","Date","Time","Comment","Photo URL"] });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Posts");
+    XLSX.writeFile(wb, `instawall_posts_${yyyyMMdd()}.xlsx`);
+  }
+
+  // ==== 8) Utilities ====
+  async function loadThumbnails(urls, size){
+    const out = [];
+    for (const url of urls) {
       try {
-        const rows = await fetchPosts();
-        renderPreview(rows);
-        statusEl.textContent = `Loaded ${rows.length} rows`;
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = 'Failed to load';
-        alert('Failed to fetch posts: ' + e.message);
-      }
-    };
+        if (!url) { out.push(null); continue; }
+        const res = await fetch(url, { mode:'cors' });
+        const blob = await res.blob();
+        const img = await blobToImage(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const [sx, sy, s] = coverCrop(img.naturalWidth, img.naturalHeight);
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        out.push(canvas.toDataURL('image/jpeg', 0.9));
+      } catch(e) { out.push(null); }
+    }
+    return out;
+  }
+  function coverCrop(iw, ih){ const s = Math.min(iw, ih); return [Math.floor((iw-s)/2), Math.floor((ih-s)/2), s]; }
+  function blobToImage(blob){
+    return new Promise((resolve,reject)=>{
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = reject;
+      img.crossOrigin = 'anonymous';
+      img.src = url;
+    });
+  }
+  function downloadBlob(blob, filename){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
 
-    excelBtn.onclick = async () => {
-      excelBtn.disabled = true; statusEl.textContent = 'Building Excel…';
-      try {
-        const rows = await fetchPosts();
-        exportExcel(rows);
-        statusEl.textContent = `Excel saved (${rows.length} rows)`;
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = 'Excel failed';
-        alert('Excel export failed: ' + e.message);
-      } finally { excelBtn.disabled = false; }
-    };
+  // ==== 9) Wire up UI ====
+  refreshBtn.onclick = async () => {
+    statusEl.textContent = 'Loading…';
+    try {
+      const rows = await fetchPosts();
+      renderPreview(rows);
+      statusEl.textContent = `Loaded ${rows.length} rows`;
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = 'Failed to load';
+      alert('Failed to fetch posts: ' + e.message);
+    }
+  };
 
-    pdfBtn.onclick = async () => {
-      pdfBtn.disabled = true; statusEl.textContent = 'Building PDF…';
-      try {
-        const rows = await fetchPosts();
-        await exportPDF(rows);
-        statusEl.textContent = `PDF saved (${rows.length} rows)`;
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = 'PDF failed';
-        alert('PDF export failed: ' + e.message);
-      } finally { pdfBtn.disabled = false; }
-    };
+  xlsImgBtn.onclick = async () => {
+    xlsImgBtn.disabled = true; statusEl.textContent = 'Building .xls with images…';
+    try {
+      const rows = await fetchPosts();
+      await exportXlsWithImages(rows);
+      statusEl.textContent = `Excel (.xls) saved (${rows.length} rows)`;
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = 'Excel (.xls) failed';
+      alert('Export failed: ' + e.message);
+    } finally { xlsImgBtn.disabled = false; }
+  };
 
-    // Optional: auto-fill "To" as today
-    (function initDates(){
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth()+1).padStart(2,'0');
-      const dd = String(today.getDate()).padStart(2,'0');
-      toDate.value = `${yyyy}-${mm}-${dd}`;
-    })();
-  </script>
+  pdfBtn.onclick = async () => {
+    pdfBtn.disabled = true; statusEl.textContent = 'Building PDF…';
+    try {
+      const rows = await fetchPosts();
+      await exportPDF(rows);
+      statusEl.textContent = `PDF saved (${rows.length} rows)`;
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = 'PDF failed';
+      alert('PDF export failed: ' + e.message);
+    } finally { pdfBtn.disabled = false; }
+  };
+
+  xlsxBtn.onclick = async () => {
+    xlsxBtn.disabled = true; statusEl.textContent = 'Building .xlsx…';
+    try {
+      const rows = await fetchPosts();
+      exportXlsxNoImages(rows);
+      statusEl.textContent = `Excel (.xlsx) saved (${rows.length} rows)`;
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = 'Excel (.xlsx) failed';
+      alert('XLSX export failed: ' + e.message);
+    } finally { xlsxBtn.disabled = false; }
+  };
+
+  // Prefill "To" as today
+  (function initDates(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    toDate.value = `${yyyy}-${mm}-${dd}`;
+  })();
+</script>
 </body>
 </html>
